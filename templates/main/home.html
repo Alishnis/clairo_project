@@ -1,0 +1,169 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="background-container">
+    {# Background images - these will be absolutely or fixed positioned via CSS #}
+    <img src="{% static 'images/clairo.jpg' %}" class="background-image" style="top: 5%; left: 10%; width: 15%; transform: rotate(5deg);" alt="Clairo">
+    <img src="{% static 'images/clairo2.jpg' %}" class="background-image" style="top: 15%; right: 8%; width: 18%; transform: rotate(-10deg);" alt="Clairo">
+    <img src="{% static 'images/clairo3.jpg' %}" class="background-image" style="bottom: 10%; left: 5%; width: 16%; transform: rotate(-5deg);" alt="Clairo">
+    <img src="{% static 'images/clairo4.jpg' %}" class="background-image" style="bottom: 15%; right: 15%; width: 17%; transform: rotate(12deg);" alt="Clairo">
+    <img src="{% static 'images/clairo5.jpg' %}" class="background-image" style="top: 30%; left: 40%; width: 14%; transform: rotate(3deg);" alt="Clairo">
+    <img src="{% static 'images/clairo6.jpg' %}" class="background-image" style="bottom: 30%; right: 40%; width: 15%; transform: rotate(-8deg);" alt="Clairo">
+</div>
+
+<div class="container mt-5">
+    <div class="card shadow-lg mx-auto" style="max-width: 600px;">
+        <div class="card-body">
+            <div class="text-center">
+                <h1 class="card-title">Guess the Song!</h1>
+                <p class="card-text">Can you guess the song from a short clip?</p>
+                
+                <div class="mb-4 mt-4 start-button-block">
+                    <button id="playButton" class="btn btn-primary btn-lg">
+                        <i class="fas fa-play"></i> Start Game
+                    </button>
+                </div>
+
+                <div id="gameArea" class="d-none">
+                    <div class="mb-4">
+                        <label for="audioPlayer" class="form-label">Listen Here:</label>
+                        <audio id="audioPlayer" controls class="w-100"></audio>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="songGuess" class="form-label">Song Title:</label>
+                        <input type="text" id="songGuess" class="form-control form-control-lg" 
+                               placeholder="Enter song title" autocomplete="off">
+                        <div id="suggestions" class="list-group" style="position: absolute; z-index: 1000; width: calc(100% - 40px);"></div>
+                    </div>
+
+                    <div class="mb-4">
+                        <button id="checkAnswer" class="btn btn-primary btn-lg">Check Answer</button>
+                        <button id="nextSong" class="btn btn-secondary btn-lg ms-2">Next Song</button>
+                    </div>
+
+                    <div id="result" class="alert d-none"></div>
+                </div>
+
+                <div id="score" class="mt-4">
+                    <h3>Score: <span id="scoreValue">0</span></h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+{{ all_songs|json_script:"songs-data" }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const playButton = document.getElementById('playButton');
+    const gameArea = document.getElementById('gameArea');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const songGuess = document.getElementById('songGuess');
+    const suggestionsDiv = document.getElementById('suggestions');
+    const checkAnswer = document.getElementById('checkAnswer');
+    const nextSongButton = document.getElementById('nextSong');
+    const result = document.getElementById('result');
+    const scoreValue = document.getElementById('scoreValue');
+    let score = 0;
+    let currentSong = null;
+    let allSongs = []; 
+
+    // Fetch songs data from the embedded script tag
+    const songsDataElement = document.getElementById('songs-data');
+    if (songsDataElement) {
+        try {
+            allSongs = JSON.parse(songsDataElement.textContent);
+            console.log('Loaded songs data:', allSongs); // Log data to console
+        } catch (e) {
+            console.error('Error parsing songs data:', e);
+        }
+    }
+
+    playButton.addEventListener('click', function() {
+        gameArea.classList.remove('d-none');
+        playButton.classList.add('d-none');
+        loadNewSong();
+    });
+
+    nextSongButton.addEventListener('click', function() {
+        loadNewSong();
+    });
+
+    function loadNewSong() {
+        fetch('/get-song/')
+            .then(response => response.json())
+            .then(data => {
+                currentSong = data;
+                audioPlayer.src = data.audio_url;
+                audioPlayer.currentTime = 0;
+                songGuess.value = '';
+                result.classList.add('d-none');
+                suggestionsDiv.innerHTML = ''; // Clear suggestions
+            });
+    }
+
+    checkAnswer.addEventListener('click', function() {
+        const guess = songGuess.value.trim().toLowerCase();
+        const correctAnswerTitle = currentSong.title.toLowerCase();
+        
+        if (guess === correctAnswerTitle) {
+            score += 1;
+            scoreValue.textContent = score;
+            result.textContent = 'Correct! 🎉';
+            result.className = 'alert alert-success';
+        } else {
+            result.textContent = `Incorrect! The correct answer was: ${currentSong.title} - ${currentSong.artist}`;
+            result.className = 'alert alert-danger';
+        }
+        result.classList.remove('d-none');
+        suggestionsDiv.innerHTML = ''; // Clear suggestions after checking
+    });
+
+    // Autocomplete logic
+    songGuess.addEventListener('input', function() {
+        const input = this.value.toLowerCase();
+        suggestionsDiv.innerHTML = '';
+
+        if (input.length === 0 || allSongs.length === 0) {
+            return; // Don't show suggestions if input is empty or no songs are loaded
+        }
+
+        const filteredSongs = allSongs.filter(song => 
+            song.title.toLowerCase().includes(input) || 
+            song.artist.toLowerCase().includes(input)
+        );
+
+        filteredSongs.forEach(song => {
+            const suggestionItem = document.createElement('a');
+            suggestionItem.href = '#';
+            suggestionItem.classList.add('list-group-item', 'list-group-item-action');
+            suggestionItem.textContent = `${song.title} - ${song.artist}`;
+            suggestionItem.addEventListener('click', function(e) {
+                e.preventDefault();
+                songGuess.value = song.title; // Only put title in input
+                suggestionsDiv.innerHTML = '';
+            });
+            suggestionsDiv.appendChild(suggestionItem);
+        });
+    });
+
+    // Hide suggestions when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!songGuess.contains(event.target) && !suggestionsDiv.contains(event.target)) {
+            suggestionsDiv.innerHTML = '';
+        }
+    });
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% endblock %} 
