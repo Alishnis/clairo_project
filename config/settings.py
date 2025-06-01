@@ -131,3 +131,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Genius API settings
+GENIUS_ACCESS_TOKEN = 'YOUR_GENIUS_ACCESS_TOKEN'  # Replace with your actual token

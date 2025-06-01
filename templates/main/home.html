@@ -1,169 +1,319 @@
-{% extends 'main/base.html' %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guess the Song</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f0f0f0;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
 
-{% block content %}
-<div class="background-container">
-    {# Background images - these will be absolutely or fixed positioned via CSS #}
-    <img src="{% static 'images/clairo.jpg' %}" class="background-image" style="top: 5%; left: 10%; width: 15%; transform: rotate(5deg);" alt="Clairo">
-    <img src="{% static 'images/clairo2.jpg' %}" class="background-image" style="top: 15%; right: 8%; width: 18%; transform: rotate(-10deg);" alt="Clairo">
-    <img src="{% static 'images/clairo3.jpg' %}" class="background-image" style="bottom: 10%; left: 5%; width: 16%; transform: rotate(-5deg);" alt="Clairo">
-    <img src="{% static 'images/clairo4.jpg' %}" class="background-image" style="bottom: 15%; right: 15%; width: 17%; transform: rotate(12deg);" alt="Clairo">
-    <img src="{% static 'images/clairo5.jpg' %}" class="background-image" style="top: 30%; left: 40%; width: 14%; transform: rotate(3deg);" alt="Clairo">
-    <img src="{% static 'images/clairo6.jpg' %}" class="background-image" style="bottom: 30%; right: 40%; width: 15%; transform: rotate(-8deg);" alt="Clairo">
-</div>
+        .navbar {
+            background: linear-gradient(45deg, #D4AF37, #B8860B);
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
 
-<div class="container mt-5">
-    <div class="card shadow-lg mx-auto" style="max-width: 600px;">
-        <div class="card-body">
-            <div class="text-center">
-                <h1 class="card-title">Guess the Song!</h1>
-                <p class="card-text">Can you guess the song from a short clip?</p>
-                
-                <div class="mb-4 mt-4 start-button-block">
-                    <button id="playButton" class="btn btn-primary btn-lg">
-                        <i class="fas fa-play"></i> Start Game
-                    </button>
-                </div>
+        .navbar-brand {
+            color: white !important;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
 
-                <div id="gameArea" class="d-none">
-                    <div class="mb-4">
-                        <label for="audioPlayer" class="form-label">Listen Here:</label>
-                        <audio id="audioPlayer" controls class="w-100"></audio>
+        .nav-link {
+            color: rgba(255, 255, 255, 0.9) !important;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: white !important;
+        }
+
+        .page-wrapper {
+            min-height: 100vh;
+            position: relative;
+        }
+
+        .background-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .background-layer img {
+            position: absolute;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .background-layer img:hover {
+            transform: scale(1.05) rotate(0deg) !important;
+        }
+
+        .foreground-layer {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card {
+            background-color: rgba(255, 255, 255, 0.95);
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #ff6b6b, #485461);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            transition: transform 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #485461, #ff6b6b);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background-color: #f0f0f0;
+            color: #4a4a4a;
+            border: 1px solid #d0d0d0;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-2px);
+        }
+
+        #suggestions {
+            max-height: 200px;
+            overflow-y: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .list-group-item {
+            border: none;
+            padding: 10px 15px;
+            transition: background-color 0.2s ease;
+        }
+
+        .list-group-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .alert {
+            border-radius: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'home' %}">🎵 weezaru music</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'home' %}">Guess the Song</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'complete_lyrics' %}">Complete Lyrics</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-wrapper">
+        {# Background Layer for Images #}
+        <div class="background-layer">
+            <img src="{% static 'images/clairo.jpg' %}" class="background-image" style="top: 5%; left: 10%; width: 15%; transform: rotate(5deg);" alt="Clairo">
+            <img src="{% static 'images/clairo2.jpg' %}" class="background-image" style="top: 15%; right: 8%; width: 18%; transform: rotate(-10deg);" alt="Clairo">
+            <img src="{% static 'images/clairo3.jpg' %}" class="background-image" style="bottom: 10%; left: 5%; width: 16%; transform: rotate(-5deg);" alt="Clairo">
+            <img src="{% static 'images/clairo4.jpg' %}" class="background-image" style="bottom: 15%; right: 15%; width: 17%; transform: rotate(12deg);" alt="Clairo">
+            <img src="{% static 'images/clairo5.jpg' %}" class="background-image" style="top: 30%; left: 40%; width: 14%; transform: rotate(3deg);" alt="Clairo">
+            <img src="{% static 'images/clairo6.jpg' %}" class="background-image" style="bottom: 30%; right: 40%; width: 15%; transform: rotate(-8deg);" alt="Clairo">
+        </div>
+
+        {# Foreground Layer for Content #}
+        <div class="foreground-layer d-flex justify-content-center align-items-center">
+            <div class="card shadow-lg p-4 text-center" style="max-width: 600px;">
+                <div class="card-body">
+                    <h1 class="card-title">Guess the Song!</h1>
+                    <p class="card-text">Can you guess the song from a short clip?</p>
+
+                    <div class="mb-4 mt-4 start-button-block">
+                        <button id="playButton" class="btn btn-primary btn-lg">
+                            <i class="fas fa-play"></i> Start Game
+                        </button>
                     </div>
 
-                    <div class="mb-4">
-                        <label for="songGuess" class="form-label">Song Title:</label>
-                        <input type="text" id="songGuess" class="form-control form-control-lg" 
-                               placeholder="Enter song title" autocomplete="off">
-                        <div id="suggestions" class="list-group" style="position: absolute; z-index: 1000; width: calc(100% - 40px);"></div>
+                    <div id="gameArea" class="d-none">
+                        <div class="mb-4">
+                            <label for="audioPlayer" class="form-label">Listen Here:</label>
+                            <audio id="audioPlayer" controls class="w-100"></audio>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="songGuess" class="form-label">Song Title:</label>
+                            <input type="text" id="songGuess" class="form-control form-control-lg" 
+                                   placeholder="Enter song title" autocomplete="off">
+                            <div id="suggestions" class="list-group" style="position: absolute; z-index: 1000; width: calc(100% - 40px);"></div>
+                        </div>
+
+                        <div class="mb-4">
+                            <button id="checkAnswer" class="btn btn-primary btn-lg">Check Answer</button>
+                            <button id="nextSong" class="btn btn-secondary btn-lg ms-2">Next Song</button>
+                        </div>
+
+                        <div id="result" class="alert d-none"></div>
                     </div>
 
-                    <div class="mb-4">
-                        <button id="checkAnswer" class="btn btn-primary btn-lg">Check Answer</button>
-                        <button id="nextSong" class="btn btn-secondary btn-lg ms-2">Next Song</button>
+                    <div id="score" class="mt-4">
+                        <h3>Score: <span id="scoreValue">0</span></h3>
                     </div>
-
-                    <div id="result" class="alert d-none"></div>
-                </div>
-
-                <div id="score" class="mt-4">
-                    <h3>Score: <span id="scoreValue">0</span></h3>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-{% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {{ all_songs|json_script:"songs-data" }}
 
-{% block extra_js %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const playButton = document.getElementById('playButton');
+        const gameArea = document.getElementById('gameArea');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const songGuess = document.getElementById('songGuess');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const checkAnswer = document.getElementById('checkAnswer');
+        const nextSongButton = document.getElementById('nextSong');
+        const result = document.getElementById('result');
+        const scoreValue = document.getElementById('scoreValue');
 
-{{ all_songs|json_script:"songs-data" }}
+        let score = 0;
+        let currentSong = null;
+        let allSongs = []; 
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const playButton = document.getElementById('playButton');
-    const gameArea = document.getElementById('gameArea');
-    const audioPlayer = document.getElementById('audioPlayer');
-    const songGuess = document.getElementById('songGuess');
-    const suggestionsDiv = document.getElementById('suggestions');
-    const checkAnswer = document.getElementById('checkAnswer');
-    const nextSongButton = document.getElementById('nextSong');
-    const result = document.getElementById('result');
-    const scoreValue = document.getElementById('scoreValue');
-    let score = 0;
-    let currentSong = null;
-    let allSongs = []; 
-
-    // Fetch songs data from the embedded script tag
-    const songsDataElement = document.getElementById('songs-data');
-    if (songsDataElement) {
-        try {
-            allSongs = JSON.parse(songsDataElement.textContent);
-            console.log('Loaded songs data:', allSongs); // Log data to console
-        } catch (e) {
-            console.error('Error parsing songs data:', e);
+        // Fetch songs data from the embedded script tag
+        const songsDataElement = document.getElementById('songs-data');
+        if (songsDataElement) {
+            try {
+                allSongs = JSON.parse(songsDataElement.textContent);
+                console.log('Loaded songs data:', allSongs); // Log data to console
+            } catch (e) {
+                console.error('Error parsing songs data:', e);
+            }
         }
-    }
 
-    playButton.addEventListener('click', function() {
-        gameArea.classList.remove('d-none');
-        playButton.classList.add('d-none');
-        loadNewSong();
-    });
+        playButton.addEventListener('click', function() {
+            gameArea.classList.remove('d-none');
+            playButton.classList.add('d-none');
+            loadNewSong();
+        });
 
-    nextSongButton.addEventListener('click', function() {
-        loadNewSong();
-    });
+        nextSongButton.addEventListener('click', function() {
+            loadNewSong();
+        });
 
-    function loadNewSong() {
-        fetch('/get-song/')
-            .then(response => response.json())
-            .then(data => {
-                currentSong = data;
-                audioPlayer.src = data.audio_url;
-                audioPlayer.currentTime = 0;
-                songGuess.value = '';
-                result.classList.add('d-none');
-                suggestionsDiv.innerHTML = ''; // Clear suggestions
+        function loadNewSong() {
+            fetch('/get-song/')
+                .then(response => response.json())
+                .then(data => {
+                    currentSong = data;
+                    audioPlayer.src = data.audio_url;
+                    audioPlayer.currentTime = 0;
+                    songGuess.value = '';
+                    result.classList.add('d-none');
+                    suggestionsDiv.innerHTML = ''; // Clear suggestions
+                });
+        }
+
+        checkAnswer.addEventListener('click', function() {
+            const guess = songGuess.value.trim().toLowerCase();
+            const correctAnswerTitle = currentSong.title.toLowerCase();
+            
+            if (guess === correctAnswerTitle) {
+                score += 1;
+                scoreValue.textContent = score;
+                result.textContent = 'Correct! 🎉';
+                result.className = 'alert alert-success';
+            } else {
+                result.textContent = `Incorrect! The correct answer was: ${currentSong.title} - ${currentSong.artist}`;
+                result.className = 'alert alert-danger';
+            }
+            result.classList.remove('d-none');
+            suggestionsDiv.innerHTML = ''; // Clear suggestions after checking
+        });
+
+        // Autocomplete logic
+        songGuess.addEventListener('input', function() {
+            const input = this.value.toLowerCase();
+            suggestionsDiv.innerHTML = '';
+
+            if (input.length === 0 || allSongs.length === 0) {
+                return; // Don't show suggestions if input is empty or no songs are loaded
+            }
+
+            const filteredSongs = allSongs.filter(song => 
+                song.title.toLowerCase().includes(input) || 
+                song.artist.toLowerCase().includes(input)
+            );
+
+            filteredSongs.forEach(song => {
+                const suggestionItem = document.createElement('a');
+                suggestionItem.href = '#';
+                suggestionItem.classList.add('list-group-item', 'list-group-item-action');
+                suggestionItem.textContent = `${song.title} - ${song.artist}`;
+                suggestionItem.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    songGuess.value = song.title; // Only put title in input
+                    suggestionsDiv.innerHTML = '';
+                });
+                suggestionsDiv.appendChild(suggestionItem);
             });
-    }
+        });
 
-    checkAnswer.addEventListener('click', function() {
-        const guess = songGuess.value.trim().toLowerCase();
-        const correctAnswerTitle = currentSong.title.toLowerCase();
-        
-        if (guess === correctAnswerTitle) {
-            score += 1;
-            scoreValue.textContent = score;
-            result.textContent = 'Correct! 🎉';
-            result.className = 'alert alert-success';
-        } else {
-            result.textContent = `Incorrect! The correct answer was: ${currentSong.title} - ${currentSong.artist}`;
-            result.className = 'alert alert-danger';
-        }
-        result.classList.remove('d-none');
-        suggestionsDiv.innerHTML = ''; // Clear suggestions after checking
-    });
-
-    // Autocomplete logic
-    songGuess.addEventListener('input', function() {
-        const input = this.value.toLowerCase();
-        suggestionsDiv.innerHTML = '';
-
-        if (input.length === 0 || allSongs.length === 0) {
-            return; // Don't show suggestions if input is empty or no songs are loaded
-        }
-
-        const filteredSongs = allSongs.filter(song => 
-            song.title.toLowerCase().includes(input) || 
-            song.artist.toLowerCase().includes(input)
-        );
-
-        filteredSongs.forEach(song => {
-            const suggestionItem = document.createElement('a');
-            suggestionItem.href = '#';
-            suggestionItem.classList.add('list-group-item', 'list-group-item-action');
-            suggestionItem.textContent = `${song.title} - ${song.artist}`;
-            suggestionItem.addEventListener('click', function(e) {
-                e.preventDefault();
-                songGuess.value = song.title; // Only put title in input
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!songGuess.contains(event.target) && !suggestionsDiv.contains(event.target)) {
                 suggestionsDiv.innerHTML = '';
-            });
-            suggestionsDiv.appendChild(suggestionItem);
+            }
         });
     });
-
-    // Hide suggestions when clicking outside
-    document.addEventListener('click', function(event) {
-        if (!songGuess.contains(event.target) && !suggestionsDiv.contains(event.target)) {
-            suggestionsDiv.innerHTML = '';
-        }
-    });
-});
-</script>
-{% endblock %}
-
-{% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/style.css' %}">
-{% endblock %} 
+    </script>
+</body>
+</html>

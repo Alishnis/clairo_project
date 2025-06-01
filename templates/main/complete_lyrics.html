@@ -1,0 +1,254 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Complete the Lyrics</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f0f0f0;
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    .navbar {
+      background: linear-gradient(45deg, #D4AF37, #B8860B);
+      padding: 1rem;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .navbar-brand {
+      color: white !important;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .nav-link {
+      color: rgba(255, 255, 255, 0.9) !important;
+      font-size: 1.1rem;
+      transition: color 0.3s ease;
+    }
+
+    .nav-link:hover {
+      color: white !important;
+    }
+
+    .background-layer {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .background-layer img {
+      position: absolute;
+    }
+
+    .foreground-layer {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .game-card {
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+      max-width: 600px;
+      width: 100%;
+    }
+
+    .btn-primary {
+      background: linear-gradient(45deg, #ff6b6b, #485461);
+      border: none;
+      padding: 12px 30px;
+      border-radius: 30px;
+      font-size: 1.1rem;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(45deg, #485461, #ff6b6b);
+    }
+
+    .btn-secondary {
+      background-color: #f0f0f0;
+      color: #4a4a4a;
+      border: 1px solid #d0d0d0;
+      padding: 12px 30px;
+      border-radius: 30px;
+      font-size: 1.1rem;
+    }
+
+    .lyrics-line {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+
+    .alert {
+      border-radius: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-expand-lg">
+    <div class="container">
+      <a class="navbar-brand" href="{% url 'home' %}">🎵 weezaru music</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'home' %}">Guess the Song</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="{% url 'complete_lyrics' %}">Complete Lyrics</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="background-layer">
+    <img src="{% static 'images/clairo.jpg' %}" class="background-image" style="top: 5%; left: 10%; width: 15%; transform: rotate(5deg);" />
+    <img src="{% static 'images/clairo2.jpg' %}" class="background-image" style="top: 15%; right: 8%; width: 18%; transform: rotate(-10deg);" />
+    <img src="{% static 'images/clairo3.jpg' %}" class="background-image" style="bottom: 10%; left: 5%; width: 16%; transform: rotate(-5deg);" />
+    <img src="{% static 'images/clairo4.jpg' %}" class="background-image" style="bottom: 15%; right: 15%; width: 17%; transform: rotate(12deg);" />
+  </div>
+
+  <div class="foreground-layer">
+    <div class="game-card text-center">
+
+      <h2 class="mb-3">🎧 Complete the Lyrics</h2>
+      <p class="text-muted">Listen and fill in the missing word in the lyrics.</p>
+
+      {% if game_completed %}
+        <div class="alert alert-success">
+          <h4>🎉 Congratulations! You've completed all songs!</h4>
+          <p class="mb-2">Final Score: {{ final_score }} / {{ total_attempts }}</p>
+          <p>Accuracy: {{ accuracy }}%</p>
+        </div>
+        <a href="{% url 'complete_lyrics' %}" class="btn btn-primary mt-3">🎮 Start New Game</a>
+      {% elif error %}
+        <div class="alert alert-warning">{{ error }}</div>
+        {% if song_title and song_artist %}
+          <h4 class="mt-3">{{ song_title }} - {{ song_artist }}</h4>
+          <audio controls class="w-100 mb-4">
+            <source src="{{ audio_url }}" type="audio/mpeg">
+            Your browser does not support the audio element.
+          </audio>
+        {% endif %}
+        <div class="score-info mb-3">
+          <p>Current Score: <span class="badge bg-primary">{{ current_score }}</span></p>
+          <p>Songs Remaining: <span class="badge bg-secondary">{{ songs_remaining }}</span></p>
+        </div>
+        <a href="{% url 'complete_lyrics' %}" class="btn btn-secondary mt-3">🔁 Try another song</a>
+      {% else %}
+        <div class="score-info mb-3">
+          <p>Current Score: <span class="badge bg-primary">{{ current_score }}</span></p>
+          <p>Songs Remaining: <span class="badge bg-secondary">{{ songs_remaining }}</span></p>
+        </div>
+        <audio controls class="w-100 mb-4">
+          <source src="{{ audio_url }}" type="audio/mpeg">
+          Your browser does not support the audio element.
+        </audio>
+
+        <div class="text-start mb-4">
+          {% for line in lyrics_snippet %}
+            <div class="lyrics-line">{{ line }}</div>
+          {% endfor %}
+        </div>
+
+        <form id="lyricsForm">
+          <div class="input-group mb-3">
+            <input type="text" id="userInput" class="form-control form-control-lg" placeholder="Enter the missing word..." autocomplete="off">
+            <button class="btn btn-primary" type="submit">Check Answer</button>
+          </div>
+          <input type="hidden" id="correctAnswer" value="{{ missing_word|lower }}">
+        </form>
+
+        <div id="result" class="alert d-none"></div>
+
+        <div class="mt-4">
+          <button id="showAnswerBtn" class="btn btn-secondary me-2">👁️ Show Answer</button>
+          <a href="{% url 'complete_lyrics' %}" class="btn btn-secondary">🎵 Next Song</a>
+        </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("lyricsForm");
+    const resultBox = document.getElementById("result");
+    const showAnswerBtn = document.getElementById("showAnswerBtn");
+    const correct = document.getElementById("correctAnswer")?.value || "";
+
+    form?.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const userInput = document.getElementById("userInput").value.trim().toLowerCase();
+      resultBox.classList.remove("d-none", "alert-success", "alert-danger");
+
+      if (userInput === correct) {
+        resultBox.classList.add("alert-success");
+        resultBox.textContent = "✅ Correct!";
+        // Update score via AJAX
+        fetch("{% url 'check_answer' %}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+          },
+          body: `answer=${encodeURIComponent(userInput)}&correct_answer=${encodeURIComponent(correct)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.correct) {
+            // Update score display
+            const scoreBadge = document.querySelector('.score-info .badge');
+            if (scoreBadge) {
+              scoreBadge.textContent = data.score;
+            }
+          }
+        });
+      } else {
+        resultBox.classList.add("alert-danger");
+        resultBox.textContent = "❌ Incorrect. Try again!";
+        // Update attempts via AJAX
+        fetch("{% url 'check_answer' %}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+          },
+          body: `answer=${encodeURIComponent(userInput)}&correct_answer=${encodeURIComponent(correct)}`
+        });
+      }
+    });
+
+    showAnswerBtn?.addEventListener("click", function() {
+      resultBox.classList.remove("d-none", "alert-success", "alert-danger");
+      resultBox.classList.add("alert-info");
+      resultBox.textContent = `The correct answer is: "${correct}"`;
+    });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
