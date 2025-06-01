@@ -171,39 +171,49 @@
         <div class="foreground-layer d-flex justify-content-center align-items-center">
             <div class="card shadow-lg p-4 text-center" style="max-width: 600px;">
                 <div class="card-body">
-                    <h1 class="card-title">Guess the Song!</h1>
-                    <p class="card-text">Can you guess the song from a short clip?</p>
+                    {% if game_completed %}
+                        <div class="alert alert-success">
+                            <h4>🎉 Congratulations! You've completed all songs!</h4>
+                            <p class="mb-2">Final Score: {{ final_score }} / {{ total_attempts }}</p>
+                            <p>Accuracy: {{ accuracy }}%</p>
+                        </div>
+                        <a href="{% url 'home' %}" class="btn btn-primary mt-3">🎮 Start New Game</a>
+                    {% else %}
+                        <h1 class="card-title">Guess the Song!</h1>
+                        <p class="card-text">Can you guess the song from a short clip?</p>
 
-                    <div class="mb-4 mt-4 start-button-block">
-                        <button id="playButton" class="btn btn-primary btn-lg">
-                            <i class="fas fa-play"></i> Start Game
-                        </button>
-                    </div>
-
-                    <div id="gameArea" class="d-none">
-                        <div class="mb-4">
-                            <label for="audioPlayer" class="form-label">Listen Here:</label>
-                            <audio id="audioPlayer" controls class="w-100"></audio>
+                        <div class="mb-4 mt-4 start-button-block">
+                            <button id="playButton" class="btn btn-primary btn-lg">
+                                <i class="fas fa-play"></i> Start Game
+                            </button>
                         </div>
 
-                        <div class="mb-4">
-                            <label for="songGuess" class="form-label">Song Title:</label>
-                            <input type="text" id="songGuess" class="form-control form-control-lg" 
-                                   placeholder="Enter song title" autocomplete="off">
-                            <div id="suggestions" class="list-group" style="position: absolute; z-index: 1000; width: calc(100% - 40px);"></div>
+                        <div id="gameArea" class="d-none">
+                            <div class="mb-4">
+                                <label for="audioPlayer" class="form-label">Listen Here:</label>
+                                <audio id="audioPlayer" controls class="w-100"></audio>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="songGuess" class="form-label">Song Title:</label>
+                                <input type="text" id="songGuess" class="form-control form-control-lg" 
+                                       placeholder="Enter song title" autocomplete="off">
+                                <div id="suggestions" class="list-group" style="position: absolute; z-index: 1000; width: calc(100% - 40px);"></div>
+                            </div>
+
+                            <div class="mb-4">
+                                <button id="checkAnswer" class="btn btn-primary btn-lg">Check Answer</button>
+                                <button id="nextSong" class="btn btn-secondary btn-lg ms-2">Next Song</button>
+                            </div>
+
+                            <div id="result" class="alert d-none"></div>
                         </div>
 
-                        <div class="mb-4">
-                            <button id="checkAnswer" class="btn btn-primary btn-lg">Check Answer</button>
-                            <button id="nextSong" class="btn btn-secondary btn-lg ms-2">Next Song</button>
+                        <div id="score" class="mt-4">
+                            <h3>Score: <span id="scoreValue">{{ current_score }}</span></h3>
+                            <p>Songs Remaining: <span id="songsRemaining">{{ songs_remaining }}</span></p>
                         </div>
-
-                        <div id="result" class="alert d-none"></div>
-                    </div>
-
-                    <div id="score" class="mt-4">
-                        <h3>Score: <span id="scoreValue">0</span></h3>
-                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -223,6 +233,7 @@
         const nextSongButton = document.getElementById('nextSong');
         const result = document.getElementById('result');
         const scoreValue = document.getElementById('scoreValue');
+        const songsRemaining = document.getElementById('songsRemaining');
 
         let score = 0;
         let currentSong = null;
@@ -233,7 +244,7 @@
         if (songsDataElement) {
             try {
                 allSongs = JSON.parse(songsDataElement.textContent);
-                console.log('Loaded songs data:', allSongs); // Log data to console
+                console.log('Loaded songs data:', allSongs);
             } catch (e) {
                 console.error('Error parsing songs data:', e);
             }
@@ -253,12 +264,20 @@
             fetch('/get-song/')
                 .then(response => response.json())
                 .then(data => {
+                    if (data.error) {
+                        // If all songs have been played, reload the page to show final score
+                        window.location.reload();
+                        return;
+                    }
                     currentSong = data;
                     audioPlayer.src = data.audio_url;
                     audioPlayer.currentTime = 0;
                     songGuess.value = '';
                     result.classList.add('d-none');
-                    suggestionsDiv.innerHTML = ''; // Clear suggestions
+                    suggestionsDiv.innerHTML = '';
+                    if (songsRemaining) {
+                        songsRemaining.textContent = data.songs_remaining;
+                    }
                 });
         }
 
@@ -266,17 +285,28 @@
             const guess = songGuess.value.trim().toLowerCase();
             const correctAnswerTitle = currentSong.title.toLowerCase();
             
-            if (guess === correctAnswerTitle) {
-                score += 1;
-                scoreValue.textContent = score;
-                result.textContent = 'Correct! 🎉';
-                result.className = 'alert alert-success';
-            } else {
-                result.textContent = `Incorrect! The correct answer was: ${currentSong.title} - ${currentSong.artist}`;
-                result.className = 'alert alert-danger';
-            }
-            result.classList.remove('d-none');
-            suggestionsDiv.innerHTML = ''; // Clear suggestions after checking
+            fetch('/check-answer/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `answer=${encodeURIComponent(guess)}&correct_answer=${encodeURIComponent(correctAnswerTitle)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.correct) {
+                    score = data.score;
+                    scoreValue.textContent = score;
+                    result.textContent = 'Correct! 🎉';
+                    result.className = 'alert alert-success';
+                } else {
+                    result.textContent = `Incorrect! The correct answer was: ${currentSong.title} - ${currentSong.artist}`;
+                    result.className = 'alert alert-danger';
+                }
+                result.classList.remove('d-none');
+                suggestionsDiv.innerHTML = '';
+            });
         });
 
         // Autocomplete logic
@@ -285,7 +315,7 @@
             suggestionsDiv.innerHTML = '';
 
             if (input.length === 0 || allSongs.length === 0) {
-                return; // Don't show suggestions if input is empty or no songs are loaded
+                return;
             }
 
             const filteredSongs = allSongs.filter(song => 
@@ -300,7 +330,7 @@
                 suggestionItem.textContent = `${song.title} - ${song.artist}`;
                 suggestionItem.addEventListener('click', function(e) {
                     e.preventDefault();
-                    songGuess.value = song.title; // Only put title in input
+                    songGuess.value = song.title;
                     suggestionsDiv.innerHTML = '';
                 });
                 suggestionsDiv.appendChild(suggestionItem);

@@ -13,17 +13,66 @@ import string
 # Create your views here.
 
 def home(request):
-    songs = Song.objects.all().values('title', 'artist') # Get only necessary fields
-    songs_list = list(songs)
-    return render(request, 'main/home.html', {'all_songs': songs_list})
+    # Initialize session variables if they don't exist
+    if 'played_songs' not in request.session:
+        request.session['played_songs'] = []
+    if 'score' not in request.session:
+        request.session['score'] = 0
+    if 'total_attempts' not in request.session:
+        request.session['total_attempts'] = 0
+
+    songs = Song.objects.all()
+    played_songs = request.session['played_songs']
+    available_songs = [song for song in songs if song.id not in played_songs]
+
+    # If all songs have been played, show final score
+    if not available_songs:
+        final_score = request.session['score']
+        total_attempts = request.session['total_attempts']
+        accuracy = (final_score / total_attempts * 100) if total_attempts > 0 else 0
+        
+        # Reset session
+        request.session['played_songs'] = []
+        request.session['score'] = 0
+        request.session['total_attempts'] = 0
+        
+        return render(request, 'main/home.html', {
+            'game_completed': True,
+            'final_score': final_score,
+            'total_attempts': total_attempts,
+            'accuracy': round(accuracy, 1)
+        })
+
+    songs_list = list(songs.values('title', 'artist'))
+    return render(request, 'main/home.html', {
+        'all_songs': songs_list,
+        'current_score': request.session['score'],
+        'songs_remaining': len(available_songs)
+    })
 
 @csrf_exempt
 def get_song(request):
+    # Initialize session variables if they don't exist
+    if 'played_songs' not in request.session:
+        request.session['played_songs'] = []
+    if 'score' not in request.session:
+        request.session['score'] = 0
+    if 'total_attempts' not in request.session:
+        request.session['total_attempts'] = 0
+
     songs = Song.objects.all()
     if not songs:
         return JsonResponse({'error': 'No songs available'}, status=404)
     
-    song = random.choice(songs)
+    # Filter out already played songs
+    played_songs = request.session['played_songs']
+    available_songs = [song for song in songs if song.id not in played_songs]
+
+    # If all songs have been played, return error
+    if not available_songs:
+        return JsonResponse({'error': 'All songs have been played'}, status=404)
+
+    song = random.choice(available_songs)
     
     # Create a short clip of the song
     audio_path = os.path.join(settings.MEDIA_ROOT, str(song.audio_file))
@@ -56,10 +105,15 @@ def get_song(request):
     except Exception as e:
         return JsonResponse({'error': f'Error exporting audio clip: {e}'}, status=500)
 
+    # Add song to played songs
+    request.session['played_songs'].append(song.id)
+    request.session.modified = True
+
     return JsonResponse({
         'title': song.title,
         'artist': song.artist,
-        'audio_url': f'{settings.MEDIA_URL}clips/{clip_filename}'
+        'audio_url': f'{settings.MEDIA_URL}clips/{clip_filename}',
+        'songs_remaining': len(available_songs) - 1
     })
 
 def get_lyrics_from_genius(artist, title):
@@ -241,8 +295,8 @@ def complete_lyrics_game(request):
 @csrf_exempt
 def check_answer(request):
     if request.method == 'POST':
-        user_answer = clean_text(request.POST.get('answer', ''))
-        correct_answer = clean_text(request.POST.get('correct_answer', ''))
+        user_answer = request.POST.get('answer', '').strip().lower()
+        correct_answer = request.POST.get('correct_answer', '').strip().lower()
         
         request.session['total_attempts'] = request.session.get('total_attempts', 0) + 1
         
